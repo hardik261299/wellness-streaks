@@ -1,0 +1,12 @@
+{
+  "name": "@wellness/domain",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": { "date-fns": "^4.1.0", "@date-fns/tz": "^1.2.0" },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --passWithNoTests"
+  }
+}

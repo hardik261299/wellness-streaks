@@ -15,7 +15,7 @@ Monorepo, npm workspaces, TypeScript strict everywhere.
 ## Commands
 ```
 npm install
-docker compose up -d db          # local Postgres on :5432
+cp .env.example .env             # fill DATABASE_URL (hosted Neon Postgres; no Docker needed)
 npm run db:migrate -w apps/api   # prisma migrate dev
 npm run dev -w apps/api          # API on :4000
 npm run dev -w apps/web          # web on :5173

@@ -1,0 +1,12 @@
+{
+  "name": "@wellness/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": { "@wellness/shared": "*", "@wellness/domain": "*" },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --passWithNoTests"
+  }
+}
