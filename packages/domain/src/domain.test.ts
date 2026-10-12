@@ -264,8 +264,11 @@ describe('input validation (found in review: silent garbage / rollover)', () => 
     expect(addDays('2028-02-29', 1)).toBe('2028-03-01');
     expect(() => addDays('2026-02-29', 0)).toThrow();
   });
-  it('weekStart and isCheckinDateAllowed propagate the validation', () => {
+  it('weekStart throws on impossible dates', () => {
     expect(() => weekStart('2026-02-30')).toThrow();
-    expect(() => isCheckinDateAllowed('2026-02-30', '2026-03-01')).toThrow();
+  });
+  it('isCheckinDateAllowed: impossible candidate date is simply not allowed; bad "today" throws', () => {
+    expect(isCheckinDateAllowed('2026-02-30', '2026-03-01')).toBe(false);
+    expect(() => isCheckinDateAllowed('2026-03-01', '2026-02-30')).toThrow();
   });
 });

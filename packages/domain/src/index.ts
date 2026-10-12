@@ -16,7 +16,14 @@ function pad(n: number, width: number): string {
 function parseLocalDate(localDate: string): number {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(localDate);
   if (!m) throw new Error(`Invalid local date: ${localDate}`);
-  return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const ms = Date.UTC(y, mo - 1, d);
+  // Date.UTC rolls impossible dates over (Feb 30 -> Mar 2); reject them instead.
+  const back = new Date(ms);
+  if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) {
+    throw new Error(`Invalid local date: ${localDate}`);
+  }
+  return ms;
 }
 
 function formatUtcDay(ms: number): string {
@@ -26,7 +33,10 @@ function formatUtcDay(ms: number): string {
 
 /** Local calendar date (YYYY-MM-DD) of an instant in an IANA timezone. */
 export function toLocalDate(instant: Date, timezone: string): string {
+  if (Number.isNaN(instant.getTime())) throw new Error('Invalid instant');
   const d = new TZDate(instant.getTime(), timezone);
+  // TZDate silently yields an Invalid Date for unknown zones.
+  if (Number.isNaN(d.getTime())) throw new Error(`Invalid timezone: ${timezone}`);
   return `${pad(d.getFullYear(), 4)}-${pad(d.getMonth() + 1, 2)}-${pad(d.getDate(), 2)}`;
 }
 
