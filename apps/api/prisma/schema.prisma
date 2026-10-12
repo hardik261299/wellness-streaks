@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  EMPLOYEE
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(EMPLOYEE)
+  /// IANA timezone, e.g. "Asia/Kolkata". Source of truth for the user's local day.
+  timezone     String
+  createdAt    DateTime @default(now())
+
+  checkins    Checkin[]
+  memberships TeamMembership[]
+
+  @@map("users")
+}
+
+model Habit {
+  id        String   @id @default(cuid())
+  name      String
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  checkins Checkin[]
+
+  @@map("habits")
+}
+
+model Checkin {
+  id      String @id @default(cuid())
+  userId  String
+  habitId String
+  /// Local calendar day 'YYYY-MM-DD' in the user's timezone at check-in time.
+  /// Stored as TEXT, not DATE: the domain package works with plain YYYY-MM-DD
+  /// strings, and Prisma maps @db.Date to a JS Date at UTC midnight, which
+  /// invites off-by-one timezone bugs. The format is enforced by a CHECK
+  /// constraint in the migration; ISO strings sort and compare correctly.
+  localDate String
+  /// UTC instant of the check-in.
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, habitId, localDate])
+  // Weekly leaderboard: all of a user's check-ins in a date range.
+  @@index([userId, localDate])
+  @@index([habitId])
+
+  @@map("checkins")
+}
+
+model Team {
+  id       String @id @default(cuid())
+  name     String @unique
+  /// IANA timezone, fixed at creation; defines the Mon-Sun leaderboard week.
+  timezone String
+
+  memberships TeamMembership[]
+
+  @@map("teams")
+}
+
+model TeamMembership {
+  id       String    @id @default(cuid())
+  userId   String
+  teamId   String
+  joinedAt DateTime  @default(now())
+  /// NULL while the membership is active.
+  leftAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  // Leaderboard: members of a team. The partial unique index
+  // "team_memberships_one_active_per_user" (userId WHERE leftAt IS NULL) is
+  // raw SQL in the migration; Prisma cannot express partial indexes.
+  @@index([teamId, leftAt])
+  @@index([userId])
+  @@map("team_memberships")
+}
