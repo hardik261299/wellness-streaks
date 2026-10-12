@@ -27,6 +27,16 @@ export interface TeamRecord {
   timezone: string;
 }
 
+/** Thrown by a Repo when a uniqueness rule is violated (including races the route's pre-check missed). */
+export class ConflictError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 export interface Repo {
   users: {
     create(input: Omit<UserRecord, 'id'>): Promise<UserRecord>;
@@ -46,7 +56,8 @@ export interface Repo {
     create(input: CheckinRecord): Promise<CheckinRecord>;
     delete(userId: string, habitId: string, localDate: string): Promise<boolean>;
     listForUser(userId: string): Promise<CheckinRecord[]>;
-    listForUsers(userIds: string[]): Promise<CheckinRecord[]>;
+    /** Inclusive local-date range (YYYY-MM-DD) keeps leaderboard reads bounded to one week. */
+    listForUsers(userIds: string[], range?: { from: string; to: string }): Promise<CheckinRecord[]>;
   };
   teams: {
     create(input: Omit<TeamRecord, 'id'>): Promise<TeamRecord>;
@@ -56,7 +67,8 @@ export interface Repo {
   memberships: {
     /** Team id of the user's single active membership, or null. */
     activeTeamId(userId: string): Promise<string | null>;
-    /** Throws nothing; caller checks activeTeamId first. Must enforce one active membership. */
+    /** Caller checks activeTeamId first, but the Repo must still enforce one active membership
+     *  and throw ConflictError('ALREADY_IN_TEAM') if two joins race. */
     join(userId: string, teamId: string): Promise<void>;
     /** Returns false if the user had no active membership in that team. */
     leave(userId: string, teamId: string): Promise<boolean>;

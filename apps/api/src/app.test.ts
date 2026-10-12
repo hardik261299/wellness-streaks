@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import bcrypt from 'bcryptjs';
 import type { z } from 'zod';
@@ -11,20 +11,47 @@ import {
   teamSchema,
   userSchema,
 } from '@wellness/shared';
+import { PrismaClient } from '@prisma/client';
 import { createApp } from './app';
+import type { Repo } from './repo';
 import { InMemoryRepo } from './repo.memory';
+import { createPrismaRepo } from './repo.prisma';
 
 const PASSWORD = 'password123';
 
+// The same suite runs against both Repo implementations:
+//   npm test                      -> in-memory (fast, no DB)
+//   REPO=prisma npm test          -> real Postgres at TEST_DATABASE_URL (wiped between tests)
+const usePrisma = process.env.REPO === 'prisma';
+const prisma = usePrisma ? makeTestPrisma() : null;
+
+function makeTestPrisma(): PrismaClient {
+  const url = process.env.TEST_DATABASE_URL;
+  if (!url || !url.includes('test')) {
+    throw new Error('REPO=prisma needs TEST_DATABASE_URL pointing at a database whose URL contains "test"');
+  }
+  vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
+  return new PrismaClient({ datasourceUrl: url });
+}
+
+beforeEach(async () => {
+  await prisma?.$executeRawUnsafe(
+    'TRUNCATE users, habits, checkins, teams, team_memberships RESTART IDENTITY CASCADE',
+  );
+});
+afterAll(async () => {
+  await prisma?.$disconnect();
+});
+
 interface Ctx {
-  repo: InMemoryRepo;
+  repo: Repo;
   app: ReturnType<typeof createApp>;
   setNow: (iso: string) => void;
 }
 
 function makeCtx(initialIso = '2025-03-12T12:00:00Z'): Ctx {
   let current = new Date(initialIso);
-  const repo = new InMemoryRepo();
+  const repo = prisma ? createPrismaRepo(prisma) : new InMemoryRepo();
   const app = createApp({
     repo,
     now: () => current,

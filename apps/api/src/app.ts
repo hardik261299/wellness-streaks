@@ -20,6 +20,7 @@ import {
   type User,
 } from '@wellness/shared';
 import {
+  addDays,
   computeStreaks,
   isCheckinDateAllowed,
   rankTeams,
@@ -70,6 +71,10 @@ export function createApp(deps: AppDeps): Express {
   app.use(cors({ origin: deps.webOrigin ?? false, credentials: true }));
   app.use(express.json());
   app.use(cookieParser());
+
+  app.get('/api/health', (_req, res) => {
+    res.json({ ok: true });
+  });
 
   const userOf = (req: Request): UserRecord => {
     const u = (req as AuthedRequest).user;
@@ -325,7 +330,10 @@ export function createApp(deps: AppDeps): Express {
       const scored = await Promise.all(
         teams.map(async (t) => {
           const memberIds = await repo.memberships.memberIds(t.id);
-          const checkins = await repo.checkins.listForUsers(memberIds);
+          const checkins = await repo.checkins.listForUsers(memberIds, {
+            from: week,
+            to: addDays(week, 6),
+          });
           const members = memberIds.map((id) => ({
             checkinDates: [
               ...new Set(checkins.filter((c) => c.userId === id).map((c) => c.localDate)),

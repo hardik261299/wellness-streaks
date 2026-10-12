@@ -1,8 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import type { CheckinRecord, HabitRecord, Repo, TeamRecord, UserRecord } from './repo';
+import {
+  ConflictError,
+  type CheckinRecord,
+  type HabitRecord,
+  type Repo,
+  type TeamRecord,
+  type UserRecord,
+} from './repo';
 
 const key = (u: string, h: string, d: string) => `${u}|${h}|${d}`;
 
+/** Test double. Mirrors the uniqueness rules the Postgres schema enforces. */
 export class InMemoryRepo implements Repo {
   private userMap = new Map<string, UserRecord>();
   private habitMap = new Map<string, HabitRecord>();
@@ -12,13 +20,17 @@ export class InMemoryRepo implements Repo {
 
   users: Repo['users'] = {
     create: async (input) => {
-      const rec = { ...input, id: randomUUID() };
+      const email = input.email.toLowerCase();
+      if ([...this.userMap.values()].some((u) => u.email === email)) {
+        throw new ConflictError('EMAIL_TAKEN', 'email already registered');
+      }
+      const rec = { ...input, email, id: randomUUID() };
       this.userMap.set(rec.id, rec);
       return rec;
     },
     findById: async (id) => this.userMap.get(id) ?? null,
     findByEmail: async (email) =>
-      [...this.userMap.values()].find((u) => u.email.toLowerCase() === email.toLowerCase()) ?? null,
+      [...this.userMap.values()].find((u) => u.email === email.toLowerCase()) ?? null,
   };
 
   habits: Repo['habits'] = {
@@ -48,11 +60,19 @@ export class InMemoryRepo implements Repo {
     },
     delete: async (u, h, d) => this.checkinMap.delete(key(u, h, d)),
     listForUser: async (userId) => [...this.checkinMap.values()].filter((c) => c.userId === userId),
-    listForUsers: async (ids) => [...this.checkinMap.values()].filter((c) => ids.includes(c.userId)),
+    listForUsers: async (ids, range) =>
+      [...this.checkinMap.values()].filter(
+        (c) =>
+          ids.includes(c.userId) &&
+          (!range || (c.localDate >= range.from && c.localDate <= range.to)),
+      ),
   };
 
   teams: Repo['teams'] = {
     create: async (input) => {
+      if ([...this.teamMap.values()].some((t) => t.name === input.name)) {
+        throw new ConflictError('TEAM_NAME_TAKEN', 'a team with that name already exists');
+      }
       const rec = { ...input, id: randomUUID() };
       this.teamMap.set(rec.id, rec);
       return rec;
@@ -64,7 +84,9 @@ export class InMemoryRepo implements Repo {
   memberships: Repo['memberships'] = {
     activeTeamId: async (userId) => this.membership.get(userId) ?? null,
     join: async (userId, teamId) => {
-      if (this.membership.has(userId)) throw new Error('user already has an active membership');
+      if (this.membership.has(userId)) {
+        throw new ConflictError('ALREADY_IN_TEAM', 'leave your current team first');
+      }
       this.membership.set(userId, teamId);
     },
     leave: async (userId, teamId) =>
