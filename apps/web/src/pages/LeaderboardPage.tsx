@@ -73,7 +73,13 @@ export default function LeaderboardPage() {
               {t.id === myTeamId ? (
                 <button onClick={() => void membership('leave', t.id)}>Leave {t.name}</button>
               ) : (
-                <button onClick={() => void membership('join', t.id)}>Join {t.name}</button>
+                <button
+                  disabled={myTeamId !== null}
+                  title={myTeamId !== null ? 'Leave your current team first' : undefined}
+                  onClick={() => void membership('join', t.id)}
+                >
+                  Join {t.name}
+                </button>
               )}
             </li>
           ))}

@@ -125,4 +125,15 @@ describe('leaderboard', () => {
     await screen.findByText(/Week of/);
     expect(screen.getByRole('button', { name: 'Next week' })).toBeEnabled();
   });
+
+  it('disables joining other teams while in one (one active team, SPEC 5.8)', async () => {
+    signIn('user');
+    renderApp('/leaderboard');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Join Charlie' }));
+    await screen.findByRole('button', { name: 'Leave Charlie' });
+    expect(screen.getByRole('button', { name: 'Join Alpha' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Leave Charlie' }));
+    expect(await screen.findByRole('button', { name: 'Join Alpha' })).toBeEnabled();
+  });
 });

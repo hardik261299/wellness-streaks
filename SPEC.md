@@ -69,14 +69,27 @@ Three screens: Today (habit list with one-tap check-in and streak badges), Leade
 
 ## 11. Acceptance criteria (samples)
 - Check in twice for same habit and day returns 200 both times and one DB row.
-- User in `Pacific/Auckland` checking in at 23:30 local sees that check-in on the correct local date even though UTC date differs.
+- User in `Pacific/Auckland` checking in at 00:30 local on 16 Jan (11:30 UTC on 15 Jan) gets local date 2026-01-16, not the UTC date. (v0.1 of this spec said 23:30; that is wrong: 23:30 local is still the same date in UTC. The dates only differ between local midnight and the UTC offset, found by the domain agent's test-first work.)
 - Streak across a DST change does not break.
 - Team of 4 where 2 members each check in 7 days and 2 check in 0 scores 50%.
 - Check-in for 2 days ago returns 422.
 
-## 12. Open questions
+## 12. Decisions and open questions
+Decided during build (v0.2):
+- Joining a team while already in one returns 409 `ALREADY_IN_TEAM`; the user must leave first. The UI disables Join on other teams. (Rejected: silently moving the user, because it hides a destructive-looking side effect and loses the one-active-team guarantee if two requests race.)
+- Leaderboard week: `week` must be a Monday (YYYY-MM-DD) or the request fails with 422. With no `week`, the default is the Monday of the *requesting user's* local today. Scoring uses each member's stored `local_date`, so a team's `timezone` does not change scores; it is informational in v1. (This corrects 5.6, which implied the team timezone decides week boundaries.)
+- A team with zero members scores 0 and is listed.
+- Check-ins dated in the future are never created (backfill rule); the streak function ignores them if present.
+- Tied teams get sequential ranks 1..n (tie-break by name); they do not share a rank.
+- The first admin is bootstrapped from the `ADMIN_EMAIL` / `ADMIN_PASSWORD` environment variables at API start; `register` always creates an EMPLOYEE.
+- Emails are stored and compared in lowercase. Team names are unique.
+- Response shapes: list endpoints return bare arrays; register, login, `/api/me`, join and leave return a user object; create endpoints return 201; DELETE check-in and logout return 204.
+
+Still open:
 - Should uncheck be allowed for yesterday? (v1: no)
 - Should leaderboard show individuals as well as teams? (v1: teams only)
+- Should a user's own team be shown separately when it is empty or unranked?
+- Should the team timezone drive anything (default week, display)? Currently it does not.
 
 ## 13. Milestones
 M1 schema + auth, M2 habits/check-ins/streaks, M3 teams/leaderboard, M4 UI, M5 deploy.

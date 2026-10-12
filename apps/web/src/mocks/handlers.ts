@@ -133,13 +133,16 @@ export function createHandlers(db: MockDb = createDb(), getNow: () => Date = () 
       const u = current();
       if (!u) return unauth();
       if (!db.teams.some((t) => t.id === params.id)) return err(404, 'NOT_FOUND', 'Team not found');
-      u.teamId = String(params.id); // at most one team: joining replaces the old membership
+      // Matches the real API (SPEC 5.8): at most one team, so joining while in one is a conflict.
+      if (u.teamId !== null) return err(409, 'ALREADY_IN_TEAM', 'leave your current team first');
+      u.teamId = String(params.id);
       return new HttpResponse(null, { status: 204 });
     }),
     http.post(routes.leaveTeam.path, ({ params }) => {
       const u = current();
       if (!u) return unauth();
-      if (u.teamId === params.id) u.teamId = null;
+      if (u.teamId !== params.id) return err(409, 'NOT_A_MEMBER', 'you are not a member of this team');
+      u.teamId = null;
       return new HttpResponse(null, { status: 204 });
     }),
     http.get(routes.leaderboard.path, ({ request }) => {
