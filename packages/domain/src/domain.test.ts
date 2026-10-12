@@ -247,3 +247,25 @@ describe('rankTeams (SPEC 5.6)', () => {
     expect(rankTeams([])).toEqual([]);
   });
 });
+
+describe('input validation (found in review: silent garbage / rollover)', () => {
+  it('toLocalDate throws on an unknown timezone instead of returning NaN text', () => {
+    expect(() => toLocalDate(new Date('2026-03-01T12:00:00Z'), 'Not/AZone')).toThrow();
+  });
+  it('toLocalDate throws on an invalid Date', () => {
+    expect(() => toLocalDate(new Date('nope'), 'UTC')).toThrow();
+  });
+  it('addDays throws on impossible calendar dates instead of rolling over', () => {
+    expect(() => addDays('2026-02-30', 0)).toThrow();
+    expect(() => addDays('2026-13-01', 0)).toThrow();
+    expect(() => addDays('2026-00-10', 0)).toThrow();
+  });
+  it('accepts valid leap day and rejects non-leap day', () => {
+    expect(addDays('2028-02-29', 1)).toBe('2028-03-01');
+    expect(() => addDays('2026-02-29', 0)).toThrow();
+  });
+  it('weekStart and isCheckinDateAllowed propagate the validation', () => {
+    expect(() => weekStart('2026-02-30')).toThrow();
+    expect(() => isCheckinDateAllowed('2026-02-30', '2026-03-01')).toThrow();
+  });
+});
