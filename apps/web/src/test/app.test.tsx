@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -98,6 +98,45 @@ describe('admin-only visibility', () => {
     await user.type(await screen.findByLabelText('Habit name'), 'Stretch');
     await user.click(screen.getByRole('button', { name: 'Add habit' }));
     expect(await screen.findByText('Stretch')).toBeInTheDocument();
+  });
+});
+
+describe('admin deletes habits', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  async function openAdmin() {
+    signIn('admin');
+    renderApp('/admin');
+    return userEvent.setup();
+  }
+
+  it('deletes an unused habit after confirming', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const user = await openAdmin();
+    await user.type(await screen.findByLabelText('Habit name'), 'GYM');
+    await user.click(screen.getByRole('button', { name: 'Add habit' }));
+    expect(await screen.findByText('GYM')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Delete GYM' }));
+    await waitFor(() => expect(screen.queryByText('GYM')).not.toBeInTheDocument());
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('GYM'));
+  });
+
+  it('does nothing when the confirmation is cancelled', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const user = await openAdmin();
+    await user.click(await screen.findByRole('button', { name: 'Delete Drink water' }));
+    expect(screen.getByText('Drink water')).toBeInTheDocument();
+    expect(db.habits.some((h) => h.name === 'Drink water')).toBe(true);
+  });
+
+  it('shows the API message and keeps the habit when it has check-ins (archive instead)', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const user = await openAdmin();
+    // "Walk 10 minutes" has seeded check-ins
+    await user.click(await screen.findByRole('button', { name: 'Delete Walk 10 minutes' }));
+    expect(await screen.findByText(/archive it instead/i)).toBeInTheDocument();
+    expect(screen.getByText('Walk 10 minutes')).toBeInTheDocument();
   });
 });
 

@@ -101,6 +101,8 @@ export const routes = {
   listHabits: { method: 'GET', path: '/api/habits' },
   createHabit: { method: 'POST', path: '/api/habits' },
   patchHabit: { method: 'PATCH', path: '/api/habits/:id' },
+  /** Admin only; 409 HABIT_HAS_CHECKINS if anyone has ever checked in (archive instead). */
+  deleteHabit: { method: 'DELETE', path: '/api/habits/:id' },
   putCheckin: { method: 'PUT', path: '/api/habits/:id/checkins/:date' },
   deleteCheckin: { method: 'DELETE', path: '/api/habits/:id/checkins/:date' },
   myStreaks: { method: 'GET', path: '/api/me/streaks' },

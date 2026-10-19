@@ -32,6 +32,8 @@ export default function AdminPage() {
     onError,
   });
   const archive = useMutation({ mutationFn: api.archiveHabit, onSuccess: refreshHabits, onError });
+  // The API refuses (409) when the habit has check-ins; its message tells the admin to archive instead.
+  const deleteHabit = useMutation({ mutationFn: api.deleteHabit, onSuccess: refreshHabits, onError });
   const createTeam = useMutation({
     mutationFn: api.createTeam,
     onSuccess: async () => {
@@ -66,6 +68,16 @@ export default function AdminPage() {
             <span className="grow">{h.name}</span>
             <button onClick={() => archive.mutate(h.id)} aria-label={`Archive ${h.name}`}>
               Archive
+            </button>
+            <button
+              className="danger"
+              aria-label={`Delete ${h.name}`}
+              disabled={deleteHabit.isPending}
+              onClick={() => {
+                if (window.confirm(`Delete "${h.name}"? This cannot be undone.`)) deleteHabit.mutate(h.id);
+              }}
+            >
+              Delete
             </button>
           </li>
         ))}

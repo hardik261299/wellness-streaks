@@ -4,6 +4,15 @@ import { ConflictError, type Repo } from './repo';
 const isUniqueViolation = (e: unknown): boolean =>
   e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002';
 
+/**
+ * A foreign key stopped a delete. Prisma maps Postgres 23503 (foreign_key_violation) to P2003, but an
+ * ON DELETE RESTRICT block is 23001 (restrict_violation), which Prisma surfaces as an *unknown* request
+ * error whose message carries the code. Both mean "rows still reference this one".
+ */
+const isForeignKeyBlock = (e: unknown): boolean =>
+  (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2003') ||
+  (e instanceof Prisma.PrismaClientUnknownRequestError && /23001|violates RESTRICT/.test(e.message));
+
 /** Postgres-backed Repo. Uniqueness is enforced by the DB (see prisma/migrations), not by pre-checks. */
 export function createPrismaRepo(db: PrismaClient): Repo {
   return {
@@ -30,6 +39,20 @@ export function createPrismaRepo(db: PrismaClient): Repo {
           return await db.habit.update({ where: { id }, data: { archived } });
         } catch (e) {
           if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') return null;
+          throw e;
+        }
+      },
+      // The checkins.habitId foreign key is ON DELETE RESTRICT, so the database itself refuses
+      // (P2003) if a check-in exists, even one created concurrently.
+      remove: async (id) => {
+        try {
+          await db.habit.delete({ where: { id } });
+          return true;
+        } catch (e) {
+          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') return false;
+          if (isForeignKeyBlock(e)) {
+            throw new ConflictError('HABIT_HAS_CHECKINS', 'this habit has check-ins; archive it instead');
+          }
           throw e;
         }
       },

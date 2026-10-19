@@ -100,6 +100,7 @@ export const api = {
   createHabit: (body: z.input<typeof createHabitBody>) =>
     call(routes.createHabit, habitSchema, { body: createHabitBody.parse(body) }),
   archiveHabit: (id: string) => call(routes.patchHabit, habitSchema, { params: { id }, body: { archived: true } }),
+  deleteHabit: (id: string) => call(routes.deleteHabit, empty, { params: { id } }),
   putCheckin: (habitId: string, date: string) =>
     call(routes.putCheckin, checkinSchema, { params: { id: habitId, date } }),
   deleteCheckin: (habitId: string, date: string) =>

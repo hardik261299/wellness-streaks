@@ -47,6 +47,13 @@ export class InMemoryRepo implements Repo {
       h.archived = archived;
       return { ...h };
     },
+    remove: async (id) => {
+      if (!this.habitMap.has(id)) return false;
+      if ([...this.checkinMap.values()].some((c) => c.habitId === id)) {
+        throw new ConflictError('HABIT_HAS_CHECKINS', 'this habit has check-ins; archive it instead');
+      }
+      return this.habitMap.delete(id);
+    },
   };
 
   checkins: Repo['checkins'] = {

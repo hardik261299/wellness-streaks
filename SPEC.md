@@ -29,7 +29,7 @@ Auth for v1: email + password, JWT in an httpOnly cookie. Roles stored on the us
 4. **Backfill**: users may check in for yesterday only (local date), never for future dates or earlier than yesterday.
 5. **Streak**: count of consecutive local dates ending today or yesterday with a check-in. If the latest check-in is older than yesterday, current streak is 0. Longest streak is the max run ever.
 6. **Leaderboard score (weekly, Mon-Sun in the team's timezone, which is set at team creation)**: `score = sum over members of (days with at least one check-in that week) / (members * 7)`. This is team participation rate, 0-100%. Teams are ranked by score; ties broken by team name ascending. Members with zero check-ins still count in the denominator.
-7. Archived habits keep history but cannot receive new check-ins.
+7. Archived habits keep history but cannot receive new check-ins. An admin may **delete** a habit only if it has no check-ins at all (e.g. a duplicate created by mistake); otherwise `DELETE /api/habits/:id` returns 409 `HABIT_HAS_CHECKINS` and the habit must be archived instead. The database enforces this (`ON DELETE RESTRICT`), so history cannot be lost even under concurrent requests.
 8. A user belongs to at most one team at a time. Leaving a team does not delete their check-ins; past weeks' scores are frozen at week end.
 
 ## 6. Functional requirements
@@ -47,6 +47,7 @@ Auth for v1: email + password, JWT in an httpOnly cookie. Roles stored on the us
 | GET | /api/habits | active only |
 | POST | /api/habits | admin |
 | PATCH | /api/habits/:id | admin; archive |
+| DELETE | /api/habits/:id | admin; only if the habit has no check-ins (else 409); 204 on success |
 | PUT | /api/habits/:id/checkins/:date | idempotent; date = YYYY-MM-DD local |
 | DELETE | /api/habits/:id/checkins/:date | today only |
 | GET | /api/me/streaks | |

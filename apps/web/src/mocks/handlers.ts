@@ -82,6 +82,18 @@ export function createHandlers(db: MockDb = createDb(), getNow: () => Date = () 
       h.archived = body.archived === true;
       return HttpResponse.json(h);
     }),
+    http.delete(routes.deleteHabit.path, ({ params }) => {
+      const u = current();
+      if (!u) return unauth();
+      if (u.role !== 'ADMIN') return forbidden();
+      const i = db.habits.findIndex((x) => x.id === params.id);
+      if (i < 0) return err(404, 'HABIT_NOT_FOUND', 'habit not found');
+      // Matches the real API: history is never lost, so a habit with check-ins can only be archived.
+      const hasCheckins = [...db.checkins.values()].some((byHabit) => (byHabit.get(String(params.id))?.size ?? 0) > 0);
+      if (hasCheckins) return err(409, 'HABIT_HAS_CHECKINS', 'this habit has check-ins; archive it instead');
+      db.habits.splice(i, 1);
+      return new HttpResponse(null, { status: 204 });
+    }),
     http.put(routes.putCheckin.path, ({ params }) => {
       const u = current();
       if (!u) return unauth();

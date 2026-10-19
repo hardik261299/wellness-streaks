@@ -200,6 +200,7 @@ describe('habits', () => {
       ['get', '/api/habits'],
       ['post', '/api/habits'],
       ['patch', '/api/habits/x'],
+      ['delete', '/api/habits/x'],
       ['put', '/api/habits/x/checkins/2025-03-12'],
       ['delete', '/api/habits/x/checkins/2025-03-12'],
       ['get', '/api/me/streaks'],
@@ -234,6 +235,54 @@ describe('habits', () => {
     const h = await createHabit(admin);
     expect((await admin.patch(`/api/habits/${h.id}`).send({})).status).toBe(422);
     expect((await emp.patch(`/api/habits/${h.id}`).send({ archived: true })).status).toBe(403);
+  });
+
+  describe('delete (only when the habit has no check-ins)', () => {
+    it('admin deletes an unused habit: 204, gone from the list, second delete is 404', async () => {
+      const admin = await seedAdmin(ctx);
+      const { agent: emp } = await register(ctx, 'e@x.com');
+      const keep = await createHabit(admin, 'Keep');
+      const dupe = await createHabit(admin, 'GYM');
+
+      const res = await admin.delete(`/api/habits/${dupe.id}`);
+      expect(res.status).toBe(204);
+
+      const list = parsed(habitSchema.array(), (await emp.get('/api/habits')).body);
+      expect(list.map((h) => h.id)).toEqual([keep.id]);
+      expect((await admin.delete(`/api/habits/${dupe.id}`)).status).toBe(404);
+    });
+
+    it('employee cannot delete (403) and the habit survives', async () => {
+      const admin = await seedAdmin(ctx);
+      const { agent: emp } = await register(ctx, 'e@x.com');
+      const h = await createHabit(admin);
+      expect((await emp.delete(`/api/habits/${h.id}`)).status).toBe(403);
+      expect(parsed(habitSchema.array(), (await emp.get('/api/habits')).body)).toHaveLength(1);
+    });
+
+    it('refuses with 409 HABIT_HAS_CHECKINS once anyone has checked in; allowed again after the check-in is removed', async () => {
+      const admin = await seedAdmin(ctx);
+      const { agent: emp } = await register(ctx, 'e@x.com');
+      const h = await createHabit(admin);
+      expect((await emp.put(`/api/habits/${h.id}/checkins/2025-03-12`)).status).toBe(200);
+
+      const refused = await admin.delete(`/api/habits/${h.id}`);
+      expect(refused.status).toBe(409);
+      expect(parsed(errorResponse, refused.body).error.code).toBe('HABIT_HAS_CHECKINS');
+      expect(parsed(habitSchema.array(), (await emp.get('/api/habits')).body)).toHaveLength(1);
+
+      expect((await emp.delete(`/api/habits/${h.id}/checkins/2025-03-12`)).status).toBe(204);
+      expect((await admin.delete(`/api/habits/${h.id}`)).status).toBe(204);
+    });
+
+    it('an archived habit with history cannot be deleted either (history is never lost)', async () => {
+      const admin = await seedAdmin(ctx);
+      const { agent: emp } = await register(ctx, 'e@x.com');
+      const h = await createHabit(admin);
+      await emp.put(`/api/habits/${h.id}/checkins/2025-03-12`);
+      await admin.patch(`/api/habits/${h.id}`).send({ archived: true });
+      expect((await admin.delete(`/api/habits/${h.id}`)).status).toBe(409);
+    });
   });
 });
 

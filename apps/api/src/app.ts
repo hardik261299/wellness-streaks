@@ -200,6 +200,19 @@ export function createApp(deps: AppDeps): Express {
     }),
   );
 
+  app.delete(
+    routes.deleteHabit.path,
+    requireAuth,
+    requireAdmin,
+    wrap(async (req, res) => {
+      // 409 HABIT_HAS_CHECKINS (from the Repo) when history exists: archive instead.
+      if (!(await repo.habits.remove(String(req.params.id)))) {
+        throw new ApiError(404, 'HABIT_NOT_FOUND', 'habit not found');
+      }
+      res.status(204).end();
+    }),
+  );
+
   // ---- check-ins ----
   app.put(
     routes.putCheckin.path,

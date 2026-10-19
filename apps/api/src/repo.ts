@@ -49,6 +49,9 @@ export interface Repo {
     findById(id: string): Promise<HabitRecord | null>;
     listActive(): Promise<HabitRecord[]>;
     setArchived(id: string, archived: boolean): Promise<HabitRecord | null>;
+    /** Returns false if the habit does not exist. Throws ConflictError('HABIT_HAS_CHECKINS') if any
+     *  check-in references it; the Repo enforces this itself, so a racing check-in cannot be orphaned. */
+    remove(id: string): Promise<boolean>;
   };
   checkins: {
     find(userId: string, habitId: string, localDate: string): Promise<CheckinRecord | null>;
