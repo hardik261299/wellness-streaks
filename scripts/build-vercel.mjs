@@ -50,7 +50,13 @@ writeFileSync(join(fn, 'package.json'), JSON.stringify({ type: 'commonjs' }));
 
 writeFileSync(
   join(fn, '.vc-config.json'),
-  JSON.stringify({ runtime: 'nodejs22.x', handler: 'index.js', launcherType: 'Nodejs', maxDuration: 30 }, null, 2),
+  // sin1 = Singapore, next to the Neon database (ap-southeast-1). Vercel's default (iad1, Washington)
+  // adds ~250ms per round trip, which together with a cold Neon wake-up exceeded Prisma's 5s connect timeout.
+  JSON.stringify(
+    { runtime: 'nodejs22.x', handler: 'index.js', launcherType: 'Nodejs', maxDuration: 30, regions: ['sin1'] },
+    null,
+    2,
+  ),
 );
 
 writeFileSync(
